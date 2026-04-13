@@ -11,6 +11,6 @@ int main(int argc, char *argv[])
     app.setWindowIcon(QIcon(QStringLiteral(":/icons/app.ico")));
 
     TranscoderWindow window;
-    window.show();
+    window.showMaximized();
     return app.exec();
 }

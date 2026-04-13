@@ -170,7 +170,7 @@ void TranscoderWindow::buildUi()
     rootLayout->setSpacing(10);
 
     auto *sourceCard = new QFrame(this);
-    sourceCard->setObjectName(QStringLiteral("panelCard"));
+    sourceCard->setObjectName(QStringLiteral("sourceCard"));
     auto *sourceLayout = new QVBoxLayout(sourceCard);
     sourceLayout->setContentsMargins(14, 10, 14, 10);
     sourceLayout->setSpacing(5);
@@ -208,15 +208,14 @@ void TranscoderWindow::buildUi()
     m_sourceEdit->setPlaceholderText(QStringLiteral("例如: 123.45"));
     m_sourceEdit->document()->setDocumentMargin(0);
     m_allEditors.append(m_sourceEdit);
+    
+    // 为原文本框添加textChanged信号连接，自动调整高度
+    connect(m_sourceEdit, &QPlainTextEdit::textChanged, this, [this]() {
+        adjustEditorHeight(m_sourceEdit);
+    });
 
     sourceLayout->addLayout(sourceHeader);
     sourceLayout->addWidget(m_sourceEdit);
-
-    auto *resultContainer = new QWidget(this);
-    auto *grid = new QGridLayout(resultContainer);
-    grid->setContentsMargins(2, 2, 2, 2);
-    grid->setHorizontalSpacing(10);
-    grid->setVerticalSpacing(10);
 
     struct PanelDef {
         PanelKey key;
@@ -235,34 +234,68 @@ void TranscoderWindow::buildUi()
         {PanelKey::Unicode, "Unicode", "\\uXXXX / \\UXXXXXXXX。", true},
         {PanelKey::Html, "HTML Entity", "HTML 字符实体转义。", true},
         {PanelKey::Md5_32, "MD5_32", "32 位大写摘要。", false},
-        {PanelKey::Md5_16, "MD5_16", "MD5 中间 16 位。", false},
         {PanelKey::Sha1, "SHA1", "160 位摘要。", false},
-        {PanelKey::Sha256, "SHA256", "256 位摘要。", false}
+        {PanelKey::Sha256, "SHA256", "256 位摘要。", false},
+        {PanelKey::Sha512, "SHA512", "512 位摘要。", false}
     };
 
+    // 创建顶部转码框区域
+    auto *topResultContainer = new QWidget(this);
+    auto *topGrid = new QGridLayout(topResultContainer);
+    topGrid->setContentsMargins(2, 2, 2, 2);
+    topGrid->setHorizontalSpacing(10);
+    topGrid->setVerticalSpacing(10);
+
+    // 创建底部转码框区域
+    auto *bottomResultContainer = new QWidget(this);
+    auto *bottomGrid = new QGridLayout(bottomResultContainer);
+    bottomGrid->setContentsMargins(2, 2, 2, 2);
+    bottomGrid->setHorizontalSpacing(10);
+    bottomGrid->setVerticalSpacing(10);
+
+    // 将转码框分为上下两部分
+    const int halfPanels = panels.size() / 2;
     for (int i = 0; i < panels.size(); ++i) {
         const auto &panel = panels.at(i);
-        grid->addWidget(createPanel(panel.key,
-                                    QString::fromUtf8(panel.title),
-                                    QString::fromUtf8(panel.hint),
-                                    panel.reversible),
-                        i / 2,
-                        i % 2);
+        if (i < halfPanels) {
+            topGrid->addWidget(createPanel(panel.key,
+                                        QString::fromUtf8(panel.title),
+                                        QString::fromUtf8(panel.hint),
+                                        panel.reversible),
+                            i / 2,
+                            i % 2);
+        } else {
+            bottomGrid->addWidget(createPanel(panel.key,
+                                        QString::fromUtf8(panel.title),
+                                        QString::fromUtf8(panel.hint),
+                                        panel.reversible),
+                            (i - halfPanels) / 2,
+                            (i - halfPanels) % 2);
+        }
     }
 
-    auto *resultScroll = new QScrollArea(this);
-    resultScroll->setWidgetResizable(true);
-    resultScroll->setFrameShape(QFrame::NoFrame);
-    resultScroll->setWidget(resultContainer);
+    auto *topResultScroll = new QScrollArea(this);
+    topResultScroll->setWidgetResizable(true);
+    topResultScroll->setFrameShape(QFrame::NoFrame);
+    topResultScroll->setWidget(topResultContainer);
 
+    auto *bottomResultScroll = new QScrollArea(this);
+    bottomResultScroll->setWidgetResizable(true);
+    bottomResultScroll->setFrameShape(QFrame::NoFrame);
+    bottomResultScroll->setWidget(bottomResultContainer);
+
+    // 创建垂直分割器，将窗口分为上、中、下三部分
     auto *splitter = new QSplitter(Qt::Vertical, this);
+    splitter->addWidget(topResultScroll);
     splitter->addWidget(sourceCard);
-    splitter->addWidget(resultScroll);
+    splitter->addWidget(bottomResultScroll);
     splitter->setCollapsible(0, false);
     splitter->setCollapsible(1, false);
-    splitter->setStretchFactor(0, 0);
-    splitter->setStretchFactor(1, 1);
-    splitter->setSizes({88, 662});
+    splitter->setCollapsible(2, false);
+    splitter->setStretchFactor(0, 1);
+    splitter->setStretchFactor(1, 0);
+    splitter->setStretchFactor(2, 1);
+    splitter->setSizes({300, 120, 300});
 
     rootLayout->addWidget(splitter, 1);
 
@@ -295,12 +328,25 @@ QWidget *TranscoderWindow::createPanel(PanelKey key, const QString &title, const
     layout->setSpacing(6);
 
     auto *header = new QHBoxLayout;
+    auto *titleContainer = new QWidget(card);
+    auto *titleLayout = new QHBoxLayout(titleContainer);
+    titleLayout->setContentsMargins(0, 0, 0, 0);
+    titleLayout->setSpacing(8);
+    
     auto *titleLabel = new QLabel(title, card);
     titleLabel->setObjectName(QStringLiteral("panelTitle"));
+    
+    auto *hintLabel = new QLabel(hint, card);
+    hintLabel->setObjectName(QStringLiteral("hintLabel"));
+    
+    titleLayout->addWidget(titleLabel);
+    titleLayout->addWidget(hintLabel);
+    titleLayout->addStretch();
+    
     auto *copyButton = new QPushButton(QStringLiteral("复制"), card);
     copyButton->setCursor(Qt::PointingHandCursor);
 
-    header->addWidget(titleLabel);
+    header->addWidget(titleContainer);
     header->addStretch();
 
     QPushButton *decodeButton = nullptr;
@@ -310,25 +356,38 @@ QWidget *TranscoderWindow::createPanel(PanelKey key, const QString &title, const
         header->addWidget(decodeButton);
         connect(decodeButton, &QPushButton::clicked, this, [this, key]() { decodeFromPanel(key); });
     }
+    
+    // 添加小写按钮
+    QPushButton *lowercaseButton = new QPushButton(QStringLiteral("小写"), card);
+    lowercaseButton->setCursor(Qt::PointingHandCursor);
+    header->addWidget(lowercaseButton);
+    connect(lowercaseButton, &QPushButton::clicked, this, [this, key]() {
+        auto panel = m_panels.value(static_cast<int>(key));
+        if (!panel.editor) {
+            return;
+        }
+        QSignalBlocker blocker(panel.editor);
+        panel.editor->setPlainText(panel.editor->toPlainText().toLower());
+    });
+    
     header->addWidget(copyButton);
-
-    auto *hintLabel = new QLabel(hint, card);
-    hintLabel->setWordWrap(true);
-    hintLabel->setObjectName(QStringLiteral("hintLabel"));
 
     auto *editor = createTextEdit(card);
     if (!reversible) {
         editor->setReadOnly(true);
     } else {
         editor->setPlaceholderText(QStringLiteral("可直接粘贴结果后点“还原”。"));
+        // 为可逆编辑框添加textChanged信号连接，自动调整高度
+        connect(editor, &QPlainTextEdit::textChanged, this, [this, editor]() {
+            adjustEditorHeight(editor);
+        });
     }
     m_allEditors.append(editor);
 
     layout->addLayout(header);
-    layout->addWidget(hintLabel);
     layout->addWidget(editor, 1);
 
-    m_panels.insert(static_cast<int>(key), PanelWidgets{editor, copyButton, decodeButton, reversible, title});
+    m_panels.insert(static_cast<int>(key), PanelWidgets{editor, copyButton, decodeButton, lowercaseButton, reversible, title});
     connect(copyButton, &QPushButton::clicked, this, [this, key]() { copyPanel(key); });
     return card;
 }
@@ -341,6 +400,7 @@ void TranscoderWindow::applyTheme()
         setStyleSheet(QStringLiteral(R"(
             QWidget { background:#121820; color:#d3dde7; font-family:"Microsoft YaHei UI"; font-size:13px; }
             QFrame#panelCard { background:#1b2531; border:1px solid #2f4156; border-radius:14px; }
+            QFrame#sourceCard { background:#1e3042; border:1px solid #4a6b8a; border-radius:14px; }
             QLabel#panelTitle { color:#f3f8ff; font-size:15px; font-weight:700; }
             QLabel#hintLabel { color:#95a8bc; font-size:12px; }
             QLabel#statusLabel { border-radius:10px; padding:8px 10px; }
@@ -349,7 +409,7 @@ void TranscoderWindow::applyTheme()
                 selection-background-color:#2d537a;
             }
             QPlainTextEdit:focus { border:1px solid #5ea4e8; }
-            QPlainTextEdit#sourceEdit { padding:0px; }
+            QPlainTextEdit#sourceEdit { padding:0px; background:#152535; border:1px solid #4a6b8a; }
             QPushButton {
                 background:#203346; border:1px solid #3f5f7f; border-radius:10px; padding:7px 12px; min-width:58px;
             }
@@ -361,6 +421,7 @@ void TranscoderWindow::applyTheme()
         setStyleSheet(QStringLiteral(R"(
             QWidget { background:#f4f7fb; color:#1f2937; font-family:"Microsoft YaHei UI"; font-size:13px; }
             QFrame#panelCard { background:#ffffff; border:1px solid #d9e3ef; border-radius:14px; }
+            QFrame#sourceCard { background:#e6f0f8; border:1px solid #a8c7e0; border-radius:14px; }
             QLabel#panelTitle { color:#102542; font-size:15px; font-weight:700; }
             QLabel#hintLabel { color:#6b7280; font-size:12px; }
             QLabel#statusLabel { border-radius:10px; padding:8px 10px; }
@@ -369,7 +430,7 @@ void TranscoderWindow::applyTheme()
                 selection-background-color:#b9dcff;
             }
             QPlainTextEdit:focus { border:1px solid #3e8ed0; background:#ffffff; }
-            QPlainTextEdit#sourceEdit { padding:0px; }
+            QPlainTextEdit#sourceEdit { padding:0px; background:#f0f7ff; border:1px solid #a8c7e0; }
             QPushButton {
                 background:#eaf2fb; border:1px solid #ccd9e7; border-radius:10px; padding:7px 12px; min-width:58px;
             }
@@ -417,6 +478,7 @@ void TranscoderWindow::refreshOutputs()
         }
         QSignalBlocker blocker(panel.editor);
         panel.editor->setPlainText(value);
+        adjustEditorHeight(panel.editor);
     };
 
     if (source.isEmpty()) {
@@ -429,9 +491,9 @@ void TranscoderWindow::refreshOutputs()
         assignPanel(PanelKey::Unicode, {});
         assignPanel(PanelKey::Base64, {});
         assignPanel(PanelKey::Md5_32, {});
-        assignPanel(PanelKey::Md5_16, {});
         assignPanel(PanelKey::Sha1, {});
         assignPanel(PanelKey::Sha256, {});
+        assignPanel(PanelKey::Sha512, {});
         m_isRefreshing = false;
         return;
     }
@@ -447,9 +509,9 @@ void TranscoderWindow::refreshOutputs()
     assignPanel(PanelKey::Unicode, encodeUnicode(source));
     assignPanel(PanelKey::Base64, QString::fromLatin1(utf8.toBase64()));
     assignPanel(PanelKey::Md5_32, md5_32);
-    assignPanel(PanelKey::Md5_16, md5_32.mid(8, 16));
     assignPanel(PanelKey::Sha1, toHexHash(QCryptographicHash::hash(utf8, QCryptographicHash::Sha1)));
     assignPanel(PanelKey::Sha256, toHexHash(QCryptographicHash::hash(utf8, QCryptographicHash::Sha256)));
+    assignPanel(PanelKey::Sha512, toHexHash(QCryptographicHash::hash(utf8, QCryptographicHash::Sha512)));
     m_isRefreshing = false;
 }
 
@@ -505,6 +567,7 @@ void TranscoderWindow::decodeFromPanel(PanelKey key)
     }
 
     m_sourceEdit->setPlainText(decoded);
+    adjustEditorHeight(m_sourceEdit);
     setStatus(QStringLiteral("已从 %1 还原到原文本。").arg(panel.title));
 }
 
@@ -549,6 +612,26 @@ void TranscoderWindow::setStatus(const QString &message, bool isError)
                 "color:#245b7a;background:#eef7ff;border:1px solid #d8ebfb;border-radius:10px;padding:8px 10px;"));
         }
     }
+}
+
+void TranscoderWindow::adjustEditorHeight(QPlainTextEdit *editor)
+{
+    if (!editor) {
+        return;
+    }
+
+    QTextDocument *document = editor->document();
+    QFontMetrics fm(editor->font());
+    int lineHeight = fm.lineSpacing();
+    int documentHeight = document->size().height();
+    int lines = qMax(1, static_cast<int>(documentHeight / lineHeight) + 1);
+    
+    // 确保至少有一行的高度，最多不超过20行
+    lines = qMin(20, lines);
+    
+    int height = editorHeightForRows(lines);
+    editor->setMinimumHeight(height);
+    editor->setMaximumHeight(height);
 }
 
 QString TranscoderWindow::encodeHtml(const QString &text) const

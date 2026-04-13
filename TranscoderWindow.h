@@ -26,15 +26,16 @@ private:
         Unicode,
         Base64,
         Md5_32,
-        Md5_16,
         Sha1,
-        Sha256
+        Sha256,
+        Sha512
     };
 
     struct PanelWidgets {
         QPlainTextEdit *editor = nullptr;
         QPushButton *copyButton = nullptr;
         QPushButton *decodeButton = nullptr;
+        QPushButton *lowercaseButton = nullptr;
         bool reversible = false;
         QString title;
     };
@@ -49,6 +50,7 @@ private:
     void copyPanel(PanelKey key);
     void toggleTheme();
     void setStatus(const QString &message, bool isError = false);
+    void adjustEditorHeight(QPlainTextEdit *editor);
 
     QString encodeHtml(const QString &text) const;
     QString decodeHtml(const QString &text) const;
