@@ -9,6 +9,10 @@ class QLabel;
 class QPlainTextEdit;
 class QPushButton;
 class QSpinBox;
+class QGridLayout;
+class QResizeEvent;
+class QScrollArea;
+class QTabWidget;
 
 class TranscoderWindow : public QWidget
 {
@@ -18,17 +22,27 @@ public:
 private:
     enum class PanelKey {
         Url,
-        Html,
-        Sql,
-        Hex,
-        Binary,
-        Ascii,
-        Unicode,
+        Query2Json,
         Base64,
+        Base58,
+        Base32,
+        Html,
+        Unicode,
+        Hex,
+        Ascii,
+        Binary,
+        Json,
+        Jwt,
+        Timestamp,
+        TextClean,
         Md5_32,
         Sha1,
         Sha256,
-        Sha512
+        Sha512,
+        Sm3,
+        RadixConvert,
+        Sql,
+        Morse
     };
 
     struct PanelWidgets {
@@ -36,6 +50,7 @@ private:
         QPushButton *copyButton = nullptr;
         QPushButton *decodeButton = nullptr;
         QPushButton *lowercaseButton = nullptr;
+        QPushButton *pasteRestoreButton = nullptr;
         bool reversible = false;
         QString title;
     };
@@ -43,14 +58,13 @@ private:
     void buildUi();
     QWidget *createPanel(PanelKey key, const QString &title, const QString &hint, bool reversible);
     void applyTheme();
-    int editorHeightForRows(int rows) const;
-    void applyEditorRows(int rows);
+
+protected:
     void refreshOutputs();
     void decodeFromPanel(PanelKey key);
     void copyPanel(PanelKey key);
     void toggleTheme();
     void setStatus(const QString &message, bool isError = false);
-    void adjustEditorHeight(QPlainTextEdit *editor);
 
     QString encodeHtml(const QString &text) const;
     QString decodeHtml(const QString &text) const;
@@ -68,8 +82,8 @@ private:
     QPlainTextEdit *m_sourceEdit = nullptr;
     QLabel *m_statusLabel = nullptr;
     QPushButton *m_themeButton = nullptr;
-    QSpinBox *m_editorRowsSpin = nullptr;
     QList<QPlainTextEdit *> m_allEditors;
+    QTabWidget *m_tabWidget = nullptr;
 
     QHash<int, PanelWidgets> m_panels;
     bool m_darkMode = false;
