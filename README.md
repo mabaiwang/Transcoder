@@ -55,42 +55,6 @@
 * **暗黑/明亮主题切换**：内置精心调制的两套高雅现代色彩配色方案，夜晚使用更护眼。
 
 ---
-
-## 本地构建指南
-
-### Qt Creator 打开
-直接以 CMake 项目打开本目录下的 `CMakeLists.txt`，确保编译器与 Qt 套件环境匹配：
-* `MinGW` 编译器配 `Qt mingw_64` 套件（推荐）
-* `MSVC` 编译器配 `Qt msvc_64` 套件
-
-### 命令行 CMake 构建 (以 MinGW 套件为例)
-打开 PowerShell 并执行以下命令：
-```powershell
-# 1. 配置项目，指定您的 Qt 安装路径 (请根据实际情况修改 CMAKE_PREFIX_PATH)
-cmake -S . -B build_mingw -G "MinGW Makefiles" -D CMAKE_PREFIX_PATH="C:\Qt\6.10.2\mingw_64"
-
-# 2. 编译生成 Release 版本
-cmake --build build_mingw --config Release
-```
-
----
-
-## 绿色便携版分发打包 (推荐)
-通过以下 PowerShell 脚本可以自动抽取 exe 及其全部 Qt 动态链接依赖库，生成一个可独立在其它 Windows 电脑上双击运行 the 绿色文件夹：
-
-```powershell
-# 1. 编译
-cmake -S . -B build_mingw -G "MinGW Makefiles" -D CMAKE_PREFIX_PATH="C:\Qt\6.10.2\mingw_64"
-cmake --build build_mingw --config Release
-
-# 2. 创建便携输出目录
-Remove-Item -Recurse -Force .\portable -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Path .\portable | Out-Null
-
-# 3. 拷贝主程序及图标
-Copy-Item .\build_mingw\EncodeStudio.exe .\portable\
-Copy-Item .\assets\icon.ico .\portable\
-
 # 4. 调用 windeployqt 自动部署依赖 DLL
 C:\Qt\6.10.2\mingw_64\bin\windeployqt.exe --release --compiler-runtime .\portable\EncodeStudio.exe
 ```
