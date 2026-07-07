@@ -55,7 +55,4 @@
 * **暗黑/明亮主题切换**：内置精心调制的两套高雅现代色彩配色方案，夜晚使用更护眼。
 
 ---
-# 4. 调用 windeployqt 自动部署依赖 DLL
-C:\Qt\6.10.2\mingw_64\bin\windeployqt.exe --release --compiler-runtime .\portable\EncodeStudio.exe
-```
-运行完成后，`.\portable` 文件夹即为绿色便携版本，可直接压缩发送给用户。
+
